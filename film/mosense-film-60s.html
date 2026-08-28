@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>MoSense 模感科技 60s</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;400;600&family=Noto+Sans+SC:wght@200;300;400;500&display=swap');
+
+  :root{
+    --ground:#05060A;
+    --panel:#0B0D14;
+    --ink:#E8EDF2;
+    --ink-dim:#8A94A6;
+    --signal:#4FD8E8;
+    --signal-soft:rgba(79,216,232,.14);
+    --contact:#FF8A5C;
+    --line:rgba(232,237,242,.10);
+    --mono:'Chakra Petch','Noto Sans SC',sans-serif;
+    --sans:'Noto Sans SC','Chakra Petch',sans-serif;
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;background:var(--ground)}
+  body{
+    font-family:var(--sans);
+    color:var(--ink);
+    display:flex;align-items:center;justify-content:center;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .stage{
+    position:relative;
+    width:1920px;height:1080px;
+    transform-origin:center center;
+    background:var(--ground);
+    overflow:hidden;
+  }
+  canvas{position:absolute;inset:0;width:100%;height:100%}
+
+  .scene{position:absolute;inset:0;opacity:0;pointer-events:none}
+  .scene.on{opacity:1}
+  .vo{
+    position:absolute;left:120px;right:120px;bottom:84px;
+    font-weight:200;font-size:34px;letter-spacing:.14em;line-height:1.6;
+    color:var(--ink);
+    transform:translateY(14px);opacity:0;
+    transition:opacity .6s ease,transform .6s ease;
+  }
+  .vo.show{opacity:1;transform:translateY(0)}
+
+  .kbd{
+    position:absolute;top:56px;right:64px;
+    font-family:var(--mono);font-weight:300;font-size:20px;
+    letter-spacing:.28em;color:var(--ink-dim);
+  }
+  .kbd b{color:var(--signal);font-weight:600}
+  .tag{
+    position:absolute;top:56px;left:64px;
+    font-family:var(--mono);font-weight:300;font-size:20px;
+    letter-spacing:.28em;color:var(--ink-dim);text-transform:uppercase;
+  }
+  .headline{
+    position:absolute;left:120px;top:60px;
+    font-family:var(--mono);font-size:22px;font-weight:300;
+    letter-spacing:.34em;color:var(--signal);
+  }
+  .prods{
+    position:absolute;left:120px;right:120px;top:170px;
+    display:flex;gap:34px;
+  }
+  .card{
+    flex:1;padding:36px 34px 30px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:4px;
+    opacity:0;transform:translateY(26px);
+    transition:opacity .55s ease,transform .55s ease;
+  }
+  .card.in{opacity:1;transform:translateY(0)}
+  .card .dot{
+    width:14px;height:14px;border-radius:50%;
+    background:var(--signal);margin-bottom:22px;
+    box-shadow:0 0 18px var(--signal);
+  }
+  .card.hot .dot{background:var(--contact);box-shadow:0 0 18px var(--contact)}
+  .card h3{font-size:32px;font-weight:400;letter-spacing:.1em;margin-bottom:8px}
+  .card p{font-family:var(--mono);font-size:17px;font-weight:300;letter-spacing:.2em;color:var(--ink-dim)}
+
+  #s1 .thesis{
+    position:absolute;left:0;right:0;top:45%;
+    text-align:center;
+    font-weight:200;font-size:88px;letter-spacing:.30em;
+    transform:translateY(-50%);
+  }
+  #s1 .thesis .sub{
+    display:block;margin-top:36px;
+    font-family:var(--mono);font-weight:300;font-size:24px;
+    letter-spacing:.52em;color:var(--ink-dim);text-transform:uppercase;
+  }
+  #s1 .touchhint{
+    position:absolute;left:0;right:0;top:18%;
+    text-align:center;font-family:var(--mono);
+    font-size:19px;letter-spacing:.4em;color:var(--signal);
+    opacity:0;transition:opacity .8s ease;
+  }
+  #s1.hint .touchhint{opacity:.9}
+
+  #s2 .head{
+    position:absolute;left:120px;top:120px;
+    font-weight:200;font-size:56px;letter-spacing:.22em;line-height:1.3;
+  }
+  #s2 .head em{font-style:normal;color:var(--signal);font-weight:300}
+  #s2 .stack{
+    position:absolute;left:120px;top:300px;display:flex;flex-direction:column;gap:26px;
+  }
+  #s2 .layer{
+    display:flex;align-items:baseline;gap:32px;
+    font-family:var(--mono);
+    border-left:2px solid var(--line);
+    padding-left:26px;
+    opacity:0;transform:translateX(-24px);
+    transition:opacity .55s ease,transform .55s ease;
+  }
+  #s2 .layer.in{opacity:1;transform:translateX(0)}
+  #s2 .layer .no{font-size:18px;color:var(--signal);letter-spacing:.2em;font-weight:600}
+  #s2 .layer .nm{font-size:30px;font-weight:300;letter-spacing:.12em;color:var(--ink)}
+  #s2 .layer .en{font-size:17px;color:var(--ink-dim);letter-spacing:.18em}
+
+  #s5 .apps{
+    position:absolute;left:120px;right:120px;top:190px;
+    display:grid;grid-template-columns:1fr 1fr;gap:30px 34px;
+  }
+  #s5 .app{
+    display:flex;align-items:center;gap:26px;
+    padding:30px 32px;
+    background:var(--panel);border:1px solid var(--line);border-radius:4px;
+    opacity:0;transform:scale(.94);
+    transition:opacity .4s ease,transform .4s ease;
+  }
+  #s5 .app.in{opacity:1;transform:scale(1)}
+  #s5 .app .ic{
+    width:52px;height:52px;flex:none;border-radius:4px;
+    border:1px solid var(--signal-soft);
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-size:22px;color:var(--signal);
+  }
+  #s5 .app .tx b{display:block;font-size:26px;font-weight:400;letter-spacing:.1em}
+  #s5 .app .tx span{font-family:var(--mono);font-size:15px;color:var(--ink-dim);letter-spacing:.22em}
+
+  #s6 .logo{
+    position:absolute;left:0;right:0;top:42%;
+    transform:translateY(-50%);
+    text-align:center;
+  }
+  #s6 .logoword{
+    font-family:var(--mono);font-weight:600;font-size:110px;
+    letter-spacing:.24em;text-indent:.24em;
+    color:var(--ink);
+  }
+  #s6 .logoword .o{color:var(--signal)}
+  #s6 .cn{
+    margin-top:26px;font-weight:200;font-size:36px;letter-spacing:.9em;text-indent:.9em;
+    color:var(--ink);
+  }
+  #s6 .vision{
+    position:absolute;left:0;right:0;top:66%;
+    text-align:center;font-weight:200;font-size:26px;
+    letter-spacing:.2em;color:var(--ink-dim);
+    opacity:0;transition:opacity .9s ease .1s;
+  }
+  #s6.vision .vision{opacity:1}
+  #s6 .url{
+    position:absolute;left:0;right:0;bottom:64px;text-align:center;
+    font-family:var(--mono);font-size:19px;font-weight:300;
+    letter-spacing:.3em;color:var(--ink-dim);
+  }
+
+  .bar{
+    position:fixed;left:50%;bottom:26px;transform:translateX(-50%);
+    display:flex;gap:14px;align-items:center;
+    background:rgba(11,13,20,.86);border:1px solid var(--line);border-radius:8px;
+    padding:12px 22px;backdrop-filter:blur(8px);
+    font-family:var(--mono);font-size:15px;color:var(--ink-dim);
+    letter-spacing:.1em;z-index:50;
+  }
+  .bar button{
+    background:none;border:1px solid var(--line);border-radius:6px;
+    color:var(--ink);font-family:var(--mono);font-size:15px;
+    padding:7px 16px;cursor:pointer;letter-spacing:.1em;
+  }
+  .bar button:hover{border-color:var(--signal);color:var(--signal)}
+  .bar .tc b{color:var(--signal);font-weight:600}
+  body.capture .bar{display:none!important}
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <canvas id="cv"></canvas>
+
+  <!-- 0-8s: touch origin -->
+  <div class="scene" id="s1">
+    <div class="tag">MoSense · Film 60s</div>
+    <div class="kbd">T+<b id="tc1">0.0</b>s</div>
+    <div class="touchhint">U1 · U2 · U3 · U4 · U5</div>
+    <div class="thesis">感知<span style="opacity:.55">，是智能的起点</span>
+      <span class="sub">Sensing is where intelligence begins</span>
+    </div>
+    <div class="vo" id="vo1">感知，是智能的起点。</div>
+  </div>
+
+  <!-- 8-20s: full-stack -->
+  <div class="scene" id="s2">
+    <div class="tag">MoSense · Film 60s</div>
+    <div class="kbd">T+<b id="tc2">8.0</b>s</div>
+    <div class="head">模感科技<em>，从材料到芯片</em><br>全栈自研多模态柔性触觉传感</div>
+    <div class="stack">
+      <div class="layer"><span class="no">L1</span><span class="nm">电磁超材料</span><span class="en">METAMATERIAL</span></div>
+      <div class="layer"><span class="no">L2</span><span class="nm">柔性电子皮肤</span><span class="en">FLEXIBLE E-SKIN</span></div>
+      <div class="layer"><span class="no">L3</span><span class="nm">传感芯片</span><span class="en">SENSING CHIP</span></div>
+      <div class="layer"><span class="no">L4</span><span class="nm">AI 算法</span><span class="en">AI ALGORITHM</span></div>
+    </div>
+    <div class="vo" id="vo2">模感科技，从材料到芯片，全栈自研多模态柔性触觉传感。</div>
+  </div>
+
+  <!-- 20-30s: M+SKIN -->
+  <div class="scene" id="s3">
+    <div class="tag">MoSense · Film 60s</div>
+    <div class="kbd">T+<b id="tc3">20.0</b>s</div>
+    <div class="headline">M+SKIN — 全身触觉 · FULL-BODY TACTILE</div>
+    <div class="prods">
+      <div class="card"><div class="dot"></div><h3>MoChest</h3><p>躯干触觉 · TORSO</p></div>
+      <div class="card hot"><div class="dot"></div><h3>MoGrip</h3><p>夹爪触觉 · GRIPPER</p></div>
+      <div class="card"><div class="dot"></div><h3>MoSenseFoot</h3><p>足底触觉 · FOOT</p></div>
+    </div>
+    <div class="vo" id="vo3">M+SKIN 全身触觉——让机器的每一次触碰，都有分寸。</div>
+  </div>
+
+  <!-- 30-38s: robot platforms (NEW) -->
+  <div class="scene" id="s4">
+    <div class="tag">MoSense · Film 60s</div>
+    <div class="kbd">T+<b id="tc4">30.0</b>s</div>
+    <div class="headline">整机平台 · ROBOT PLATFORMS</div>
+    <div class="prods">
+      <div class="card"><div class="dot"></div><h3>MHelper</h3><p>协作机械臂 · ARM</p></div>
+      <div class="card"><div class="dot"></div><h3>MOPENARM</h3><p>双臂平台 · DUAL-ARM</p></div>
+      <div class="card"><div class="dot"></div><h3>MPM</h3><p>轮足机器人 · WHEELED-LEG</p></div>
+    </div>
+    <div class="vo" id="vo4">从触觉皮肤到整机平台，即连即用，全场景泛化。</div>
+  </div>
+
+  <!-- 38-48s: applications -->
+  <div class="scene" id="s5">
+    <div class="tag">MoSense · Film 60s</div>
+    <div class="kbd">T+<b id="tc5">38.0</b>s</div>
+    <div class="apps">
+      <div class="app"><div class="ic">+</div><div class="tx"><b>智能医疗</b><span>MEDICAL</span></div></div>
+      <div class="app"><div class="ic">◎</div><div class="tx"><b>无人店铺</b><span>RETAIL</span></div></div>
+      <div class="app"><div class="ic">⌗</div><div class="tx"><b>柔性产线</b><span>AUTOMATION</span></div></div>
+      <div class="app"><div class="ic">◍</div><div class="tx"><b>具身智能研发</b><span>EMBODIED AI</span></div></div>
+    </div>
+    <div class="vo" id="vo5">从实验室到千行百业，加速具身智能进化。</div>
+  </div>
+
+  <!-- 48-60s: logo resolve -->
+  <div class="scene" id="s6">
+    <div class="logo">
+      <div class="logoword">M<span class="o">O</span>SENSE</div>
+      <div class="cn">模感科技</div>
+    </div>
+    <div class="vision">让机器人更好地感知世界，更好地服务人类</div>
+    <div class="url">MOSENSETECH.COM</div>
+  </div>
+
+  <div class="bar" id="bar">
+    <button id="btnPlay">播放</button>
+    <button id="btnRestart">重播</button>
+    <button id="btnFull">全屏</button>
+    <span class="tc"><b id="tcNow">0.0</b> / 60.0 s</span>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   MoSense 60s film — six acts, Hall-array motif throughout
+   0-8 origin / 8-20 full-stack / 20-30 M+SKIN /
+   30-38 platforms / 38-48 applications / 48-60 logo
+   ═══════════════════════════════════════════════════════ */
+const W = 1920, H = 1080;
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+cv.width = W; cv.height = H;
+
+const SIGNAL = '79,216,232';
+const CONTACT = '255,138,92';
+const INKDIM = '138,148,166';
+const DUR = 60;
+const BOUNDS = [8, 20, 30, 38, 48];
+
+function hallPoints(cx, cy, r){
+  return [
+    {x:cx,        y:cy - r*0.55, n:'U2'},
+    {x:cx + r,    y:cy,          n:'U4'},
+    {x:cx,        y:cy,          n:'U1'},
+    {x:cx - r,    y:cy,          n:'U5'},
+    {x:cx,        y:cy + r*0.55, n:'U3'},
+  ];
+}
+
+let t0 = null, playing = false, rafId = null;
+function now(){ return t0 === null ? 0 : Math.min((performance.now() - t0)/1000, DUR); }
+
+const scenes = ['s1','s2','s3','s4','s5','s6'].map(id=>document.getElementById(id));
+const vos = ['vo1','vo2','vo3','vo4','vo5'].map(id=>document.getElementById(id));
+
+function setScenes(t){
+  let idx = 5;
+  for(let i=0;i<BOUNDS.length;i++){ if(t < BOUNDS[i]){ idx = i; break; } }
+  scenes.forEach((s,i)=>s.classList.toggle('on', i===idx));
+}
+
+/* ── S1: ripple + hall array (0-8) ── */
+function drawS1(t, ctx){
+  const cx = W/2, cy = H*0.30;
+  const trigger = 0.5;
+  // two ripple waves for the longer act
+  [trigger, 4.2].forEach((tg, wave)=>{
+    for(let k=0;k<5;k++){
+      const rt = (t - tg - k*0.28);
+      if(rt < 0 || rt > 2.6) continue;
+      const p = rt/2.6;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 30 + p*680, 0, Math.PI*2);
+      ctx.strokeStyle = `rgba(${SIGNAL},${(1-p)*(0.55 - k*0.08)*(wave?0.7:1)})`;
+      ctx.lineWidth = 2.5 - p*1.8;
+      ctx.stroke();
+    }
+  });
+  const pts = hallPoints(cx, cy, 60);
+  pts.forEach((p,i)=>{
+    const on = Math.max(0, Math.min(1, (t - trigger - i*0.12)/0.4));
+    if(on<=0) return;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 5 + on*5, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(${SIGNAL},${on})`;
+    ctx.shadowColor = `rgba(${SIGNAL},${on})`; ctx.shadowBlur = 22*on;
+    ctx.fill(); ctx.shadowBlur = 0;
+    ctx.strokeStyle = `rgba(${SIGNAL},${on*0.25})`; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(p.x-16,p.y); ctx.lineTo(p.x+16,p.y);
+    ctx.moveTo(p.x,p.y-16); ctx.lineTo(p.x,p.y+16); ctx.stroke();
+  });
+  if(t > trigger+0.7){
+    const a = Math.min(1,(t-trigger-0.7)/0.6)*0.30;
+    ctx.strokeStyle = `rgba(${SIGNAL},${a})`; ctx.lineWidth = 1;
+    for(let i=0;i<pts.length;i++) for(let j=i+1;j<pts.length;j++){
+      ctx.beginPath(); ctx.moveTo(pts[i].x,pts[i].y); ctx.lineTo(pts[j].x,pts[j].y); ctx.stroke();
+    }
+  }
+}
+
+/* ── S2: metamaterial lattice (8-20) ── */
+function drawS2(t, ctx){
+  const local = t - 8;
+  const ox = W*0.62, oy = H*0.52;
+  const cols = 10, rows = 12, gap = 58;
+  const appear = Math.min(local/3.4, 1);
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      const d = Math.hypot(c-cols/2, r-rows/2)/Math.hypot(cols/2,rows/2);
+      const born = Math.max(0, Math.min(1, (appear - d*0.55)/0.35));
+      if(born<=0) continue;
+      const x = ox + (c-cols/2)*gap, y = oy + (r-rows/2)*gap;
+      const ph = t*1.4 + (r+c)*0.5;
+      const s = 7 + Math.sin(ph)*2.2;
+      ctx.strokeStyle = `rgba(${SIGNAL},${born*0.55})`;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      for(let k=0;k<6;k++){
+        const a = k/6*Math.PI*2 + t*0.15;
+        const px = x+Math.cos(a)*s, py = y+Math.sin(a)*s;
+        k===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+      }
+      ctx.closePath(); ctx.stroke();
+      if((r+c)%3===0){
+        ctx.fillStyle = `rgba(${SIGNAL},${born*(0.35+0.25*Math.sin(ph))})`;
+        ctx.beginPath(); ctx.arc(x,y,2.2,0,Math.PI*2); ctx.fill();
+      }
+    }
+  }
+}
+
+/* ── S3: contact heatmap (20-30) ── */
+function drawS3(t, ctx){
+  const local = t - 20;
+  const bx = 120, by = H-268, bw = W-240, bh = 54;
+  const grd = ctx.createLinearGradient(bx,0,bx+bw,0);
+  const shift = (local*0.22)%1;
+  grd.addColorStop(Math.max(0,shift-0.28),`rgba(${SIGNAL},0.0)`);
+  grd.addColorStop(Math.min(1,Math.max(0,shift)),`rgba(${SIGNAL},0.85)`);
+  grd.addColorStop(Math.min(1,Math.max(0,shift+0.22)),`rgba(${CONTACT},0.9)`);
+  grd.addColorStop(Math.min(1,Math.max(0,shift+0.5)),`rgba(${CONTACT},0.0)`);
+  ctx.fillStyle = grd;
+  ctx.fillRect(bx,by,bw,bh);
+  ctx.fillStyle = `rgba(${INKDIM},0.4)`;
+  ctx.font = '300 15px "Chakra Petch"';
+  ctx.fillText('CONTACT FORCE DISTRIBUTION', bx, by+bh+28);
+  const pts = hallPoints(W-260, H-163, 42);
+  pts.forEach((p,i)=>{
+    const on = 0.4+0.6*Math.abs(Math.sin(t*2 + i));
+    ctx.beginPath(); ctx.arc(p.x,p.y,4.5,0,Math.PI*2);
+    ctx.fillStyle = `rgba(${CONTACT},${on})`;
+    ctx.fill();
+  });
+}
+
+/* ── S4: robot arm pick-and-place (30-38, NEW) ── */
+function ik2(x, y, l1, l2){
+  const d = Math.min(Math.hypot(x,y), l1+l2-1);
+  const c2 = Math.max(-1, Math.min(1, (d*d - l1*l1 - l2*l2)/(2*l1*l2)));
+  const a2 = Math.acos(c2);
+  const a1 = Math.atan2(y,x) - Math.atan2(l2*Math.sin(a2), l1 + l2*Math.cos(a2));
+  return [a1, a2];
+}
+function drawS4(t, ctx){
+  const local = t - 30;
+  const bx = W/2, by = H*0.66;
+  const l1 = 210, l2 = 190;
+  const period = 4.0;
+  const ph = (local % period) / period;          // 0..1
+  // ping-pong target along x, lift bump in the middle
+  const tri = ph < 0.5 ? ph*2 : (1-ph)*2;        // 0..1..0
+  const tx = -240 + tri*480;
+  const carry = Math.exp(-Math.pow((tri-0.5)/0.18, 2));
+  const ty = 150 - carry*110;
+  // dashed trajectory arc
+  ctx.setLineDash([4,8]);
+  ctx.strokeStyle = `rgba(${SIGNAL},0.22)`; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for(let s=0;s<=40;s++){
+    const u = s/40;
+    const x = -240 + u*480;
+    const cc = Math.exp(-Math.pow((u-0.5)/0.18, 2));
+    const y = 150 - cc*110;
+    s===0?ctx.moveTo(bx+x,by+y):ctx.lineTo(bx+x,by+y);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+  // pick / place pads + objects
+  [[-240,'PICK'],[240,'PLACE']].forEach(([x,lab],i)=>{
+    const flash = Math.abs(Math.abs(tx)-240) < 26 && ((i===0&&tri<0.15)||(i===1&&tri>0.85));
+    ctx.fillStyle = `rgba(${INKDIM},${flash?0.9:0.45})`;
+    ctx.font = '300 14px "Chakra Petch"';
+    ctx.textAlign = 'center';
+    ctx.fillText(lab, bx+x, by+206);
+    ctx.textAlign = 'left';
+    ctx.beginPath(); ctx.roundRect(bx+x-16, by+166, 32, 14, 3);
+    ctx.fillStyle = flash ? `rgba(${CONTACT},0.95)` : `rgba(${SIGNAL},0.35)`;
+    ctx.fill();
+  });
+  // arm
+  const [a1, a2] = ik2(tx, ty, l1, l2);
+  const ex1 = bx + Math.cos(a1)*l1, ey1 = by + Math.sin(a1)*l1;
+  const ea = a1 + a2;
+  const ex2 = ex1 + Math.cos(ea)*l2, ey2 = ey1 + Math.sin(ea)*l2;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = `rgba(${SIGNAL},0.85)`; ctx.lineWidth = 7;
+  ctx.beginPath(); ctx.moveTo(bx,by); ctx.lineTo(ex1,ey1); ctx.stroke();
+  ctx.strokeStyle = `rgba(${SIGNAL},0.6)`; ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.moveTo(ex1,ey1); ctx.lineTo(ex2,ey2); ctx.stroke();
+  // joints
+  [[bx,by,10],[ex1,ey1,8]].forEach(([jx,jy,jr])=>{
+    ctx.beginPath(); ctx.arc(jx,jy,jr,0,Math.PI*2);
+    ctx.fillStyle = '#0B0D14'; ctx.fill();
+    ctx.strokeStyle = `rgba(${SIGNAL},0.9)`; ctx.lineWidth = 2; ctx.stroke();
+  });
+  // effector: cyan idle, orange when carrying
+  const carrying = carry > 0.55;
+  ctx.beginPath(); ctx.arc(ex2, ey2, 9, 0, Math.PI*2);
+  ctx.fillStyle = carrying ? `rgba(${CONTACT},1)` : `rgba(${SIGNAL},0.95)`;
+  ctx.shadowColor = carrying ? `rgba(${CONTACT},1)` : `rgba(${SIGNAL},1)`;
+  ctx.shadowBlur = 22; ctx.fill(); ctx.shadowBlur = 0;
+  // label
+  ctx.fillStyle = `rgba(${INKDIM},0.4)`;
+  ctx.font = '300 15px "Chakra Petch"';
+  ctx.fillText('PICK · GRIP · PLACE — TACTILE GUIDED', 120, H-200);
+}
+
+/* ── S5: network sweep (38-48) ── */
+function drawS5(t, ctx){
+  const local = t - 38;
+  const seeds = [];
+  for(let i=0;i<42;i++){
+    const sx = ((i*173.3)%997)/997, sy = ((i*91.7)%883)/883;
+    seeds.push({x:sx*W, y:sy*H, ph:(i*1.618)%(Math.PI*2)});
+  }
+  seeds.forEach((s,i)=>{
+    const on = Math.min(1, Math.max(0,(local - i*0.06)/0.5));
+    if(on<=0)return;
+    ctx.beginPath(); ctx.arc(s.x, s.y, 3, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(${SIGNAL},${on*0.30})`;
+    ctx.fill();
+  });
+  const sx = ((local*0.20)%1)*W;
+  const g = ctx.createLinearGradient(sx-180,0,sx,0);
+  g.addColorStop(0,`rgba(${SIGNAL},0)`);
+  g.addColorStop(1,`rgba(${SIGNAL},0.12)`);
+  ctx.fillStyle = g;
+  ctx.fillRect(sx-180, 0, 180, H);
+  ctx.strokeStyle = `rgba(${SIGNAL},0.35)`; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(sx,0); ctx.lineTo(sx,H); ctx.stroke();
+}
+
+/* ── S6: logo converge (48-60) ── */
+function drawS6(t, ctx){
+  const local = t - 48;
+  const cx = W/2, cy = H*0.30;
+  const spread = Math.max(0, 1 - local/1.4);
+  const pts = hallPoints(cx, cy, 46 + spread*420);
+  pts.forEach((p,i)=>{
+    const on = Math.min(1, local/1.4);
+    ctx.beginPath(); ctx.arc(p.x, p.y, 4.5 + on*2, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(${SIGNAL},${0.35+0.65*on})`;
+    ctx.shadowColor = `rgba(${SIGNAL},${on})`; ctx.shadowBlur = 20*on;
+    ctx.fill(); ctx.shadowBlur = 0;
+  });
+  // ring closes 48.6 -> 50.0 (sonar @50 in the score)
+  const rp = Math.max(0, Math.min(1, (local - 0.6)/1.4));
+  if(rp > 0){
+    ctx.beginPath();
+    ctx.arc(cx, cy, 118, -Math.PI/2, -Math.PI/2 + rp*Math.PI*2);
+    ctx.strokeStyle = `rgba(${SIGNAL},${0.5*rp})`; ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+  // post-close breathing pulse
+  if(local > 2.0){
+    const bp = ((local - 2.0) % 3.0)/3.0;
+    ctx.beginPath(); ctx.arc(cx, cy, 118 + bp*60, 0, Math.PI*2);
+    ctx.strokeStyle = `rgba(${SIGNAL},${(1-bp)*0.18})`; ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+}
+
+/* ── DOM cascades ── */
+function setVos(t){
+  const plan = [
+    [0.8, 7.2],
+    [8.8, 19.2],
+    [20.8, 29.2],
+    [30.8, 37.2],
+    [38.8, 47.2],
+  ];
+  plan.forEach(([a,b],i)=>{
+    vos[i] && vos[i].classList.toggle('show', t>=a && t<=b);
+  });
+  document.getElementById('s1').classList.toggle('hint', t>0.5 && t<7.4);
+  const layers = document.querySelectorAll('#s2 .layer');
+  layers.forEach((el,i)=>{ el.classList.toggle('in', t > 10.2 + i*0.9); });
+  const cards3 = document.querySelectorAll('#s3 .card');
+  cards3.forEach((el,i)=>{ el.classList.toggle('in', t > 20.7 + i*0.4); });
+  const cards4 = document.querySelectorAll('#s4 .card');
+  cards4.forEach((el,i)=>{ el.classList.toggle('in', t > 30.7 + i*0.4); });
+  const apps = document.querySelectorAll('#s5 .app');
+  apps.forEach((el,i)=>{ el.classList.toggle('in', t > 38.7 + i*0.35); });
+  document.getElementById('s6').classList.toggle('vision', t > 50.5);
+}
+
+/* ── master loop ── */
+function renderFrame(t){
+  ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle = 'rgba(232,237,242,0.03)'; ctx.lineWidth = 1;
+  for(let x=0;x<W;x+=96){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<H;y+=96){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+  if(t<8) drawS1(t,ctx);
+  else if(t<20) drawS2(t,ctx);
+  else if(t<30) drawS3(t,ctx);
+  else if(t<38) drawS4(t,ctx);
+  else if(t<48) drawS5(t,ctx);
+  else drawS6(t,ctx);
+
+  setScenes(t); setVos(t);
+  document.getElementById('tcNow').textContent = t.toFixed(1);
+  const offs = [0,8,20,30,38,48];
+  for(let i=1;i<=6;i++){
+    const el=document.getElementById('tc'+i);
+    if(el) el.textContent=Math.max(0,(t - offs[i-1])).toFixed(1);
+  }
+}
+
+function frame(){
+  const t = now();
+  renderFrame(t);
+  if(t < DUR && playing){ rafId = requestAnimationFrame(frame); }
+  else if(t >= DUR){ playing = false; }
+}
+
+function play(){
+  if(playing) return;
+  if(t0 === null || now() >= DUR){ t0 = performance.now(); }
+  playing = true;
+  document.getElementById('btnPlay').textContent = '暂停';
+  rafId = requestAnimationFrame(frame);
+}
+function pause(){
+  playing = false;
+  if(t0 !== null){ const cur = now(); t0 = performance.now() - cur*1000; }
+  document.getElementById('btnPlay').textContent = '播放';
+  cancelAnimationFrame(rafId);
+}
+document.getElementById('btnPlay').onclick = ()=> playing?pause():play();
+document.getElementById('btnRestart').onclick = ()=>{ t0 = performance.now(); if(!playing) play(); };
+document.getElementById('btnFull').onclick = ()=>{
+  const st = document.getElementById('stage');
+  if(document.fullscreenElement) document.exitFullscreen();
+  else st.requestFullscreen();
+};
+addEventListener('keydown', e=>{
+  if(e.code==='Space'){e.preventDefault(); playing?pause():play();}
+  if(e.key==='r'||e.key==='R'){ t0=performance.now(); if(!playing) play(); }
+});
+
+function fit(){
+  const s = Math.min(innerWidth/W, innerHeight/H);
+  document.getElementById('stage').style.transform = `scale(${s})`;
+}
+addEventListener('resize', fit); fit();
+
+if(new URLSearchParams(location.search).has('capture')){
+  document.body.classList.add('capture');
+  window.__seek = function(seconds){
+    playing = false; cancelAnimationFrame(rafId);
+    t0 = performance.now() - seconds*1000;
+    renderFrame(seconds);
+  };
+  window.__ready = true;
+}
+</script>
+</body>
+</html>
