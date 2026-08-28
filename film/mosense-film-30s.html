@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>MoSense 模感科技 30s</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;400;600&family=Noto+Sans+SC:wght@200;300;400;500&display=swap');
+
+  :root{
+    --ground:#05060A;
+    --panel:#0B0D14;
+    --ink:#E8EDF2;
+    --ink-dim:#8A94A6;
+    --signal:#4FD8E8;
+    --signal-soft:rgba(79,216,232,.14);
+    --contact:#FF8A5C;
+    --line:rgba(232,237,242,.10);
+    --mono:'Chakra Petch','Noto Sans SC',sans-serif;
+    --sans:'Noto Sans SC','Chakra Petch',sans-serif;
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;background:var(--ground)}
+  body{
+    font-family:var(--sans);
+    color:var(--ink);
+    display:flex;align-items:center;justify-content:center;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ── stage: fixed 16:9 film frame ── */
+  .stage{
+    position:relative;
+    width:1920px;height:1080px;
+    transform-origin:center center;
+    background:var(--ground);
+    overflow:hidden;
+  }
+  canvas{position:absolute;inset:0;width:100%;height:100%}
+
+  /* ── shared scene text ── */
+  .scene{position:absolute;inset:0;opacity:0;pointer-events:none}
+  .scene.on{opacity:1}
+  .vo{
+    position:absolute;left:120px;right:120px;bottom:84px;
+    font-weight:200;font-size:34px;letter-spacing:.14em;line-height:1.6;
+    color:var(--ink);
+    transform:translateY(14px);opacity:0;
+    transition:opacity .6s ease,transform .6s ease;
+  }
+  .vo.show{opacity:1;transform:translateY(0)}
+  .vo .accent{color:var(--signal);font-weight:400}
+
+  .kbd{ /* corner label: timecode etc */
+    position:absolute;top:56px;right:64px;
+    font-family:var(--mono);font-weight:300;font-size:20px;
+    letter-spacing:.28em;color:var(--ink-dim);
+  }
+  .kbd b{color:var(--signal);font-weight:600}
+
+  .tag{
+    position:absolute;top:56px;left:64px;
+    font-family:var(--mono);font-weight:300;font-size:20px;
+    letter-spacing:.28em;color:var(--ink-dim);text-transform:uppercase;
+  }
+
+  /* ── scene 1: opening ripple + thesis ── */
+  #s1 .thesis{
+    position:absolute;left:0;right:0;top:45%;
+    text-align:center;
+    font-weight:200;font-size:88px;letter-spacing:.30em;
+    transform:translateY(-50%);
+  }
+  #s1 .thesis .sub{
+    display:block;margin-top:36px;
+    font-family:var(--mono);font-weight:300;font-size:24px;
+    letter-spacing:.52em;color:var(--ink-dim);text-transform:uppercase;
+  }
+  #s1 .touchhint{
+    position:absolute;left:0;right:0;top:18%;
+    text-align:center;font-family:var(--mono);
+    font-size:19px;letter-spacing:.4em;color:var(--signal);
+    opacity:0;transition:opacity .8s ease;
+  }
+  #s1.hint .touchhint{opacity:.9}
+
+  /* ── scene 2: full-stack materials ── */
+  #s2 .head{
+    position:absolute;left:120px;top:120px;
+    font-weight:200;font-size:56px;letter-spacing:.22em;line-height:1.3;
+  }
+  #s2 .head em{font-style:normal;color:var(--signal);font-weight:300}
+  #s2 .stack{
+    position:absolute;left:120px;top:300px;display:flex;flex-direction:column;gap:26px;
+  }
+  #s2 .layer{
+    display:flex;align-items:baseline;gap:32px;
+    font-family:var(--mono);
+    border-left:2px solid var(--line);
+    padding-left:26px;
+    opacity:0;transform:translateX(-24px);
+    transition:opacity .55s ease,transform .55s ease;
+  }
+  #s2 .layer.in{opacity:1;transform:translateX(0)}
+  #s2 .layer .no{font-size:18px;color:var(--signal);letter-spacing:.2em;font-weight:600}
+  #s2 .layer .nm{font-size:30px;font-weight:300;letter-spacing:.12em;color:var(--ink)}
+  #s2 .layer .en{font-size:17px;color:var(--ink-dim);letter-spacing:.18em}
+
+  /* ── scene 3: M+SKIN product array ── */
+  #s3 .prods{
+    position:absolute;left:120px;right:120px;top:170px;
+    display:flex;gap:34px;
+  }
+  #s3 .card{
+    flex:1;padding:36px 34px 30px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:4px;
+    opacity:0;transform:translateY(26px);
+    transition:opacity .55s ease,transform .55s ease;
+  }
+  #s3 .card.in{opacity:1;transform:translateY(0)}
+  #s3 .card .dot{
+    width:14px;height:14px;border-radius:50%;
+    background:var(--signal);margin-bottom:22px;
+    box-shadow:0 0 18px var(--signal);
+  }
+  #s3 .card.hot .dot{background:var(--contact);box-shadow:0 0 18px var(--contact)}
+  #s3 .card h3{font-size:32px;font-weight:400;letter-spacing:.1em;margin-bottom:8px}
+  #s3 .card p{font-family:var(--mono);font-size:17px;font-weight:300;letter-spacing:.2em;color:var(--ink-dim)}
+  #s3 .headline{
+    position:absolute;left:120px;top:60px;
+    font-family:var(--mono);font-size:22px;font-weight:300;
+    letter-spacing:.34em;color:var(--signal);
+  }
+
+  /* ── scene 4: applications montage ── */
+  #s4 .apps{
+    position:absolute;left:120px;right:120px;top:190px;
+    display:grid;grid-template-columns:1fr 1fr;gap:30px 34px;
+  }
+  #s4 .app{
+    display:flex;align-items:center;gap:26px;
+    padding:30px 32px;
+    background:var(--panel);border:1px solid var(--line);border-radius:4px;
+    opacity:0;transform:scale(.94);
+    transition:opacity .4s ease,transform .4s ease;
+  }
+  #s4 .app.in{opacity:1;transform:scale(1)}
+  #s4 .app .ic{
+    width:52px;height:52px;flex:none;border-radius:4px;
+    border:1px solid var(--signal-soft);
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-size:22px;color:var(--signal);
+  }
+  #s4 .app .tx b{display:block;font-size:26px;font-weight:400;letter-spacing:.1em}
+  #s4 .app .tx span{font-family:var(--mono);font-size:15px;color:var(--ink-dim);letter-spacing:.22em}
+
+  /* ── scene 5: logo resolve ── */
+  #s5 .logo{
+    position:absolute;left:0;right:0;top:42%;
+    transform:translateY(-50%);
+    text-align:center;
+  }
+  #s5 .logoword{
+    font-family:var(--mono);font-weight:600;font-size:110px;
+    letter-spacing:.24em;text-indent:.24em;
+    color:var(--ink);
+  }
+  #s5 .logoword .o{color:var(--signal)}
+  #s5 .cn{
+    margin-top:26px;font-weight:200;font-size:36px;letter-spacing:.9em;text-indent:.9em;
+    color:var(--ink);
+  }
+  #s5 .vision{
+    position:absolute;left:0;right:0;top:66%;
+    text-align:center;font-weight:200;font-size:26px;
+    letter-spacing:.2em;color:var(--ink-dim);
+    opacity:0;transition:opacity .9s ease .1s;
+  }
+  #s5.vision .vision{opacity:1}
+  #s5 .url{
+    position:absolute;left:0;right:0;bottom:64px;text-align:center;
+    font-family:var(--mono);font-size:19px;font-weight:300;
+    letter-spacing:.3em;color:var(--ink-dim);
+  }
+
+  /* ── player chrome (hidden during capture) ── */
+  .bar{
+    position:fixed;left:50%;bottom:26px;transform:translateX(-50%);
+    display:flex;gap:14px;align-items:center;
+    background:rgba(11,13,20,.86);border:1px solid var(--line);border-radius:8px;
+    padding:12px 22px;backdrop-filter:blur(8px);
+    font-family:var(--mono);font-size:15px;color:var(--ink-dim);
+    letter-spacing:.1em;z-index:50;
+  }
+  .bar button{
+    background:none;border:1px solid var(--line);border-radius:6px;
+    color:var(--ink);font-family:var(--mono);font-size:15px;
+    padding:7px 16px;cursor:pointer;letter-spacing:.1em;
+  }
+  .bar button:hover{border-color:var(--signal);color:var(--signal)}
+  .bar .tc b{color:var(--signal);font-weight:600}
+  body.capture .bar{display:none!important}
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <canvas id="cv"></canvas>
+
+  <!-- 0–4s: touch origin -->
+  <div class="scene" id="s1">
+    <div class="tag">MoSense · Film 30s</div>
+    <div class="kbd">T+<b id="tc1">0.0</b>s</div>
+    <div class="touchhint">U1 · U2 · U3 · U4 · U5</div>
+    <div class="thesis">感知<span style="opacity:.55">，是智能的起点</span>
+      <span class="sub">Sensing is where intelligence begins</span>
+    </div>
+    <div class="vo" id="vo1">感知，是智能的起点。</div>
+  </div>
+
+  <!-- 4–11s: full-stack -->
+  <div class="scene" id="s2">
+    <div class="tag">MoSense · Film 30s</div>
+    <div class="kbd">T+<b id="tc2">4.0</b>s</div>
+    <div class="head">模感科技<em>，从材料到芯片</em><br>全栈自研多模态柔性触觉传感</div>
+    <div class="stack">
+      <div class="layer"><span class="no">L1</span><span class="nm">电磁超材料</span><span class="en">METAMATERIAL</span></div>
+      <div class="layer"><span class="no">L2</span><span class="nm">柔性电子皮肤</span><span class="en">FLEXIBLE E-SKIN</span></div>
+      <div class="layer"><span class="no">L3</span><span class="nm">传感芯片</span><span class="en">SENSING CHIP</span></div>
+      <div class="layer"><span class="no">L4</span><span class="nm">AI 算法</span><span class="en">AI ALGORITHM</span></div>
+    </div>
+    <div class="vo" id="vo2">模感科技，从材料到芯片，全栈自研多模态柔性触觉传感。</div>
+  </div>
+
+  <!-- 11–18s: M+SKIN -->
+  <div class="scene" id="s3">
+    <div class="tag">MoSense · Film 30s</div>
+    <div class="kbd">T+<b id="tc3">11.0</b>s</div>
+    <div class="headline">M+SKIN — 全身触觉 · FULL-BODY TACTILE</div>
+    <div class="prods">
+      <div class="card"><div class="dot"></div><h3>MoChest</h3><p>躯干触觉 · TORSO</p></div>
+      <div class="card hot"><div class="dot"></div><h3>MoGrip</h3><p>夹爪触觉 · GRIPPER</p></div>
+      <div class="card"><div class="dot"></div><h3>MoSenseFoot</h3><p>足底触觉 · FOOT</p></div>
+    </div>
+    <div class="vo" id="vo3">M+SKIN 全身触觉——让机器的每一次触碰，都有分寸。</div>
+  </div>
+
+  <!-- 18–25s: applications -->
+  <div class="scene" id="s4">
+    <div class="tag">MoSense · Film 30s</div>
+    <div class="kbd">T+<b id="tc4">18.0</b>s</div>
+    <div class="apps">
+      <div class="app"><div class="ic">+</div><div class="tx"><b>智能医疗</b><span>MEDICAL</span></div></div>
+      <div class="app"><div class="ic">◎</div><div class="tx"><b>无人店铺</b><span>RETAIL</span></div></div>
+      <div class="app"><div class="ic">⌗</div><div class="tx"><b>柔性产线</b><span>AUTOMATION</span></div></div>
+      <div class="app"><div class="ic">◍</div><div class="tx"><b>具身智能研发</b><span>EMBODIED AI</span></div></div>
+    </div>
+    <div class="vo" id="vo4">从实验室到千行百业，即连即用，加速机器人进化。</div>
+  </div>
+
+  <!-- 25–30s: logo resolve -->
+  <div class="scene" id="s5">
+    <div class="logo">
+      <div class="logoword">M<span class="o">O</span>SENSE</div>
+      <div class="cn">模感科技</div>
+    </div>
+    <div class="vision">让机器人更好地感知世界，更好地服务人类</div>
+    <div class="url">MOSENSETECH.COM</div>
+  </div>
+
+  <div class="bar" id="bar">
+    <button id="btnPlay">播放</button>
+    <button id="btnRestart">重播</button>
+    <button id="btnFull">全屏</button>
+    <span class="tc"><b id="tcNow">0.0</b> / 30.0 s</span>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   MoSense 30s film — generative canvas per scene
+   Motif: five-point Hall array (U1 center + U2–U5 quadrants)
+   ═══════════════════════════════════════════════════════ */
+const W = 1920, H = 1080;
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+cv.width = W; cv.height = H;
+
+const SIGNAL = '79,216,232';
+const CONTACT = '255,138,92';
+const INKDIM = '138,148,166';
+
+/* Hall array geometry: U1 center, U2 top, U3 bottom, U4 right, U5 left (per eflesh_processing) */
+function hallPoints(cx, cy, r){
+  return [
+    {x:cx,        y:cy - r*0.55, n:'U2'},
+    {x:cx + r,    y:cy,          n:'U4'},
+    {x:cx,        y:cy,          n:'U1'},
+    {x:cx - r,    y:cy,          n:'U5'},
+    {x:cx,        y:cy + r*0.55, n:'U3'},
+  ];
+}
+
+/* ── timeline ── */
+const DUR = 30;
+let t0 = null, playing = false, rafId = null;
+
+function now(){ return t0 === null ? 0 : Math.min((performance.now() - t0)/1000, DUR); }
+
+/* scene visibility driver */
+const scenes = ['s1','s2','s3','s4','s5'].map(id=>document.getElementById(id));
+const vos = ['vo1','vo2','vo3','vo4'].map(id=>document.getElementById(id));
+function setScenes(t){
+  const idx = t<4?0 : t<11?1 : t<18?2 : t<25?3 : 4;
+  scenes.forEach((s,i)=>s.classList.toggle('on', i===idx));
+}
+
+/* ── S1 canvas: finger-touch ripple from Hall array ── */
+function drawS1(t, ctx){
+  const cx = W/2, cy = H*0.30;
+  const local = Math.min(t/4, 1);
+  // ripple rings triggered at ~0.5s
+  const trigger = 0.5;
+  for(let k=0;k<5;k++){
+    const rt = (t - trigger - k*0.28);
+    if(rt < 0 || rt > 2.4) continue;
+    const p = rt/2.4;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 30 + p*640, 0, Math.PI*2);
+    ctx.strokeStyle = `rgba(${SIGNAL},${(1-p)*(0.55 - k*0.08)})`;
+    ctx.lineWidth = 2.5 - p*1.8;
+    ctx.stroke();
+  }
+  // Hall array points lighting up sequentially
+  const pts = hallPoints(cx, cy, 60);
+  pts.forEach((p,i)=>{
+    const on = Math.max(0, Math.min(1, (t - trigger - i*0.12)/0.4));
+    if(on<=0) return;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 5 + on*5, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(${SIGNAL},${on})`;
+    ctx.shadowColor = `rgba(${SIGNAL},${on})`; ctx.shadowBlur = 22*on;
+    ctx.fill(); ctx.shadowBlur = 0;
+    // faint crosshair
+    ctx.strokeStyle = `rgba(${SIGNAL},${on*0.25})`; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(p.x-16,p.y); ctx.lineTo(p.x+16,p.y);
+    ctx.moveTo(p.x,p.y-16); ctx.lineTo(p.x,p.y+16); ctx.stroke();
+  });
+  // connective lattice
+  if(t > trigger+0.7){
+    const a = Math.min(1,(t-trigger-0.7)/0.6)*0.30;
+    ctx.strokeStyle = `rgba(${SIGNAL},${a})`; ctx.lineWidth = 1;
+    for(let i=0;i<pts.length;i++) for(let j=i+1;j<pts.length;j++){
+      ctx.beginPath(); ctx.moveTo(pts[i].x,pts[i].y); ctx.lineTo(pts[j].x,pts[j].y); ctx.stroke();
+    }
+  }
+}
+
+/* ── S2 canvas: metamaterial lattice (right half) ── */
+function drawS2(t, ctx){
+  const local = t - 4;
+  const ox = W*0.62, oy = H*0.52;
+  const cols = 10, rows = 12, gap = 58;
+  const appear = Math.min(local/2.2, 1);
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      const d = Math.hypot(c-cols/2, r-rows/2)/Math.hypot(cols/2,rows/2);
+      const born = Math.max(0, Math.min(1, (appear - d*0.55)/0.35));
+      if(born<=0) continue;
+      const x = ox + (c-cols/2)*gap, y = oy + (r-rows/2)*gap;
+      // breathing hexagon-ish node
+      const ph = t*1.4 + (r+c)*0.5;
+      const s = 7 + Math.sin(ph)*2.2;
+      ctx.strokeStyle = `rgba(${SIGNAL},${born*0.55})`;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      for(let k=0;k<6;k++){
+        const a = k/6*Math.PI*2 + t*0.15;
+        const px = x+Math.cos(a)*s, py = y+Math.sin(a)*s;
+        k===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+      }
+      ctx.closePath(); ctx.stroke();
+      if((r+c)%3===0){
+        ctx.fillStyle = `rgba(${SIGNAL},${born*(0.35+0.25*Math.sin(ph))})`;
+        ctx.beginPath(); ctx.arc(x,y,2.2,0,Math.PI*2); ctx.fill();
+      }
+    }
+  }
+}
+
+/* ── S3 canvas: grip contact heatmap bar under cards ── */
+function drawS3(t, ctx){
+  const local = t - 11;
+  // heatmap strip: force distribution flowing left→right
+  const bx = 120, by = H-268, bw = W-240, bh = 54;
+  const grd = ctx.createLinearGradient(bx,0,bx+bw,0);
+  const shift = (local*0.22)%1;
+  grd.addColorStop(Math.max(0,0.0+shift-0.5),'rgba(5,6,10,0)');
+  grd.addColorStop(Math.max(0,shift-0.28),`rgba(${SIGNAL},0.0)`);
+  grd.addColorStop(Math.min(1,Math.max(0,shift)),`rgba(${SIGNAL},0.85)`);
+  grd.addColorStop(Math.min(1,Math.max(0,shift+0.22)),`rgba(${CONTACT},0.9)`);
+  grd.addColorStop(Math.min(1,Math.max(0,shift+0.5)),`rgba(${CONTACT},0.0)`);
+  ctx.fillStyle = grd;
+  ctx.fillRect(bx,by,bw,bh);
+  // baseline ticks
+  ctx.fillStyle = `rgba(${INKDIM},0.4)`;
+  ctx.font = '300 15px "Chakra Petch"';
+  ctx.fillText('CONTACT FORCE DISTRIBUTION', bx, by+bh+28);
+  // hall array ghost echo
+  const pts = hallPoints(W-260, H-163, 42);
+  pts.forEach((p,i)=>{
+    const on = 0.4+0.6*Math.abs(Math.sin(t*2 + i));
+    ctx.beginPath(); ctx.arc(p.x,p.y,4.5,0,Math.PI*2);
+    ctx.fillStyle = `rgba(${CONTACT},${on})`;
+    ctx.fill();
+  });
+}
+
+/* ── S4 canvas: network sweep ── */
+function drawS4(t, ctx){
+  const local = t - 18;
+  const seeds = [];
+  // deterministic pseudo-random field
+  for(let i=0;i<42;i++){
+    const sx = ((i*173.3)%997)/997, sy = ((i*91.7)%883)/883;
+    seeds.push({x:sx*W, y:sy*H, ph:(i*1.618)%(Math.PI*2)});
+  }
+  seeds.forEach((s,i)=>{
+    const on = Math.min(1, Math.max(0,(local - i*0.06)/0.5));
+    if(on<=0)return;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, 3, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(${SIGNAL},${on*0.30})`;
+    ctx.fill();
+  });
+  // scan line sweeping
+  const sx = ((local*0.30)%1)*W;
+  const g = ctx.createLinearGradient(sx-180,0,sx,0);
+  g.addColorStop(0,`rgba(${SIGNAL},0)`);
+  g.addColorStop(1,`rgba(${SIGNAL},0.12)`);
+  ctx.fillStyle = g;
+  ctx.fillRect(sx-180, 0, 180, H);
+  ctx.strokeStyle = `rgba(${SIGNAL},0.35)`; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(sx,0); ctx.lineTo(sx,H); ctx.stroke();
+}
+
+/* ── S5 canvas: array converges into logo mark ── */
+function drawS5(t, ctx){
+  const local = t - 25;
+  const cx = W/2, cy = H*0.30;
+  // five points fly in from spread positions → array mark above wordmark
+  const spread = Math.max(0, 1 - local/1.1);
+  const pts = hallPoints(cx, cy, 46 + spread*420);
+  pts.forEach((p,i)=>{
+    const on = Math.min(1, local/1.1);
+    ctx.beginPath(); ctx.arc(p.x, p.y, 4.5 + on*2, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(${SIGNAL},${0.35+0.65*on})`;
+    ctx.shadowColor = `rgba(${SIGNAL},${on})`; ctx.shadowBlur = 20*on;
+    ctx.fill(); ctx.shadowBlur = 0;
+  });
+  // ring closing
+  if(local > 0.9){
+    const rp = Math.min(1,(local-0.9)/0.9);
+    ctx.beginPath();
+    ctx.arc(cx, cy, 118, -Math.PI/2, -Math.PI/2 + rp*Math.PI*2);
+    ctx.strokeStyle = `rgba(${SIGNAL},${0.5*rp})`; ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+}
+
+/* ── DOM subtitle driver (per-script VO timing) ── */
+const voTiming = [
+  [0.6, 3.6, 0],   // vo idx, start, none
+];
+function setVos(t){
+  const plan = [
+    [0.6, 3.5],
+    [4.6, 10.4],
+    [11.6, 17.4],
+    [18.6, 24.4],
+  ];
+  plan.forEach(([a,b],i)=>{
+    vos[i] && vos[i].classList.toggle('show', t>=a && t<=b);
+  });
+  // s1 hint
+  document.getElementById('s1').classList.toggle('hint', t>0.5 && t<3.8);
+  // s2 layers cascade
+  const layers = document.querySelectorAll('#s2 .layer');
+  layers.forEach((el,i)=>{
+    el.classList.toggle('in', t > 5.2 + i*0.5);
+  });
+  // s3 cards cascade
+  const cards = document.querySelectorAll('#s3 .card');
+  cards.forEach((el,i)=>{
+    el.classList.toggle('in', t > 11.7 + i*0.35);
+  });
+  // s4 apps cascade
+  const apps = document.querySelectorAll('#s4 .app');
+  apps.forEach((el,i)=>{
+    el.classList.toggle('in', t > 18.6 + i*0.3);
+  });
+  // s5 vision line
+  document.getElementById('s5').classList.toggle('vision', t > 26.4);
+}
+
+/* ── master loop ── */
+function frame(){
+  const t = now();
+  ctx.clearRect(0,0,W,H);
+  // subtle grid ground
+  ctx.strokeStyle = 'rgba(232,237,242,0.03)'; ctx.lineWidth = 1;
+  for(let x=0;x<W;x+=96){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<H;y+=96){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+  if(t<4) drawS1(t,ctx);
+  else if(t<11) drawS2(t,ctx);
+  else if(t<18) drawS3(t,ctx);
+  else if(t<25) drawS4(t,ctx);
+  else drawS5(t,ctx);
+
+  setScenes(t); setVos(t);
+  document.getElementById('tcNow').textContent = t.toFixed(1);
+  ['tc1','tc2','tc3','tc4'].forEach((id,i)=>{
+    const el=document.getElementById(id); if(el) el.textContent=(t - [0,4,11,18][i]).toFixed(1);
+  });
+
+  if(t < DUR && playing){ rafId = requestAnimationFrame(frame); }
+  else if(t >= DUR){ playing = false; }
+}
+
+function play(){
+  if(playing) return;
+  if(t0 === null || now() >= DUR){ t0 = performance.now(); }
+  playing = true;
+  document.getElementById('btnPlay').textContent = '暂停';
+  rafId = requestAnimationFrame(frame);
+}
+function pause(){
+  playing = false;
+  // freeze t0 so resume continues
+  if(t0 !== null){ const cur = now(); t0 = performance.now() - cur*1000; }
+  document.getElementById('btnPlay').textContent = '播放';
+  cancelAnimationFrame(rafId);
+}
+document.getElementById('btnPlay').onclick = ()=> playing?pause():play();
+document.getElementById('btnRestart').onclick = ()=>{ t0 = performance.now(); if(!playing) play(); };
+document.getElementById('btnFull').onclick = ()=>{
+  const st = document.getElementById('stage');
+  if(document.fullscreenElement) document.exitFullscreen();
+  else st.requestFullscreen();
+};
+
+/* keyboard: space toggle, R restart */
+addEventListener('keydown', e=>{
+  if(e.code==='Space'){e.preventDefault(); playing?pause():play();}
+  if(e.key==='r'||e.key==='R'){ t0=performance.now(); if(!playing) play(); }
+});
+
+/* scale stage to viewport */
+function fit(){
+  const s = Math.min(innerWidth/W, innerHeight/H);
+  document.getElementById('stage').style.transform = `scale(${s})`;
+}
+addEventListener('resize', fit); fit();
+
+/* capture mode: autoplay on load + deterministic seek API (for frame-by-frame headless recording) */
+if(new URLSearchParams(location.search).has('capture')){
+  document.body.classList.add('capture');
+  window.__seek = function(seconds){
+    // deterministic re-render at an exact timestamp (no rAF drift)
+    playing = false; cancelAnimationFrame(rafId);
+    t0 = performance.now() - seconds*1000;
+    // render one frame synchronously by temporarily enabling the loop body
+    const t = seconds;
+    ctx.clearRect(0,0,W,H);
+    ctx.strokeStyle = 'rgba(232,237,242,0.03)'; ctx.lineWidth = 1;
+    for(let x=0;x<W;x+=96){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+    for(let y=0;y<H;y+=96){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+    if(t<4) drawS1(t,ctx);
+    else if(t<11) drawS2(t,ctx);
+    else if(t<18) drawS3(t,ctx);
+    else if(t<25) drawS4(t,ctx);
+    else drawS5(t,ctx);
+    setScenes(t); setVos(t);
+  };
+  window.__ready = true;
+}
+</script>
+</body>
+</html>
