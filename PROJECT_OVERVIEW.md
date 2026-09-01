@@ -54,6 +54,8 @@
 
 ## 4. 整合方案要点（详见 INTEGRATION_PLAN.md）
 
+![触觉世界模型闭环](images/sense-imagine-act.png)
+
 **目标**：把 MoSense 霍尔触觉接进 LingBot-VA（Wan 2.2 世界模型），实现「触觉条件的世界模型」。
 
 ```
