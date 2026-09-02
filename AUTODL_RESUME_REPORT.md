@@ -1,7 +1,7 @@
 # AutoDL 云端续训完成报告（2026-09-02）
 
 > **一句话结论：全部五步完成，续训已于 17:08 在 A800 上正式启动并稳定运行。**
-> 从本地 15 万步 checkpoint 接续，目标训满 150K 步，预计 ~36 小时跑完。
+> 从本地 15 万步 checkpoint 接续，目标训满 150K 步，预计 9/4 上午跑完。
 
 ---
 
@@ -20,20 +20,46 @@
 
 ---
 
-## 2. 训练实时状态（17:17 快照）
+## 2. 训练实时状态
+
+### 📊 进度条（19:00 快照）
+
+![训练进度](images/autodl-progress.png)
+
+### 📉 loss 全程曲线
+
+![续训 loss 全程曲线](images/autodl-loss-full.png)
 
 ```
-step: 105K → 目标 150K（剩余 45K 步）
-速度: 2.84 s/step  →  ETA ≈ 36 小时（9/4 早上完成）
-loss: 0.26 → 0.18（23 个采样点内稳定下降）
+step: 105K → 109K（持续推进）→ 目标 150K
+速度: 实测 ~3.1 s/step →  ETA 9/4 上午 9:00-11:00
+loss: 0.26 → 0.15-0.19 区间（稳定下降）
 显存: 68.6G 训练 / 75.6G 进程占用（A800 80G 内）
-GPU util: 100%，温度 60°C，功耗 212W/300W
-epoch: 5.36（从 epoch 5 sample 55800 精确恢复数据顺序）
+GPU util: 95-100%，温度 65°C
+epoch: 5.5+（从 epoch 5 sample 55800 精确恢复数据顺序）
 ```
 
-![续训 loss 曲线](images/autodl-resume-loss.png)
+### 📈 梯度范数
+
+![梯度范数曲线](images/autodl-gradients.png)
+
+**健康度判断**：梯度范数稳定在 1.5~2.5，无爆炸/消失；loss 平滑下降无跳变——续训恢复完全成功，训练状态健康。
+
+### 🖥️ 服务器资源占用
+
+![资源占用仪表](images/autodl-resources.png)
 
 **续训恢复质量验证**：`Resuming data order at epoch 5, sample 55800` —— 数据顺序、优化器状态（23G training_state）都正确恢复，loss 无跳变（0.26 起步，与本地中断前水平一致），说明断点续训完全成功。
+
+---
+
+## ⚠️ 磁盘风险预测（为什么今晚要清理旧 checkpoint）
+
+![磁盘占用预测](images/autodl-disk-forecast.png)
+
+- 剩余 284G，110K→150K 共 9 个新 checkpoint × 34G = **306G → 装不下**
+- 写完 145K 后仅剩 ~10G，**写 150K 最后一个 checkpoint 时几乎必然磁盘满、训练在终点前崩溃**
+- **对策（已安排今晚 21:23 自动执行）**：110K 落盘且 `last` 改指后，删除服务器上的 105K 旧 checkpoint（本地 Data2TB 有完整备份），腾出 34G 刚好够用
 
 ---
 
