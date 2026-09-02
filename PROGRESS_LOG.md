@@ -20,6 +20,19 @@ ssh -p 44252 root@connect.nma1.seetacloud.com   # 免密已配置
 | 镜像 | miniconda3 + Python 3.12.3 + torch 2.5.1+cu124（base）| setup 脚本会另建 venv 装 torch 2.11 |
 
 **实例更换历史**（SeetaCloud 每次重开机换端口换密码，root@connect.nma1.seetacloud.com 不变）：
+
+```mermaid
+flowchart LR
+    I1["实例① 端口 51021<br/>A800 · 驱动 590 ✅ · 盘 50G ⚠️"]
+    I2["实例② 端口 51635<br/>A800 · 驱动 550 ❌ · 盘 50G ⚠️"]
+    I3["实例③ 端口 44252 ✅<br/>A800 · 驱动 580.82 ✅ · 盘 350G ✅"]
+
+    I1 -->|"9/1 22:00 平台侧 SSH 失联<br/>实例消失，代码环境全丢"| I2
+    I2 -->|"驱动 &lt; 570.86<br/>带不动 torch cu128"| I3
+    style I1 stroke-dasharray: 5 5,opacity:0.6
+    style I2 stroke-dasharray: 5 5,opacity:0.6
+```
+
 1. ~~端口 51021：驱动 590 ✅ 但数据盘仅 50G；9/1 晚 22 点 SSH 断开，实例消失~~
 2. ~~端口 51635：驱动 550 ❌（<570.86，cu128 不达标），数据盘 50G；已弃用~~
 3. **端口 44252：全达标，当前使用**（密码每次变，见控制台）
@@ -31,22 +44,67 @@ ssh -p 44252 root@connect.nma1.seetacloud.com   # 免密已配置
 | # | 任务 | 大小 | 状态 | 备注 |
 |---|---|---|---|---|
 | ① | 代码上传 | 310M | ✅ 完成 | GitHub 直连不通（ghfast.top 镜像也超时），改用 `git archive` 打包 scp |
-| ② | 环境安装 | ~8G | 🔄 进行中 | `setup_fastwam_autodl.sh` nohup 后台跑，log `/root/setup.log`；uv 已装好，正在下 torch 2.11 (530M)，速度 ~1.7MB/s |
+| ② | 环境安装 | ~8G | 🔄 进行中 | `setup_fastwam_autodl.sh` nohup 后台跑，log `/root/setup.log`；uv 已装好，torch 2.11 及 nvidia 库下载中，速度 ~1.7MB/s |
 | ③ | 数据集上传 | 2.9G | ✅ 完成 | `datasets/raw/Tactile_FastWAM_Insert_The_Cylinder` 已就位 |
-| ④ | checkpoint last 上传 | 34G | 🔄 进行中 | scp 后台跑（12G 模型 + 23G 优化器状态），速度 ~2.2MB/s，预计 ~4h；坑：目录必须带 `-r` |
+| ④ | checkpoint last 上传 | 34G | 🔄 进行中（8G/34G） | scp 后台跑（12G 模型 + 23G 优化器状态），速度 ~2.2MB/s，预计 ~4h；坑：目录必须带 `-r` |
 | ⑤ | 权重下载 | ~26G | ⏳ 待启动 | 等环境装完跑 `prepare_fastwam_models.sh`，走 hf-mirror.com（实测 8MB/s）|
 | ⑥ | 续训启动 | — | ⏳ 待启动 | `RESUME=1 bash scripts/autodl/train_fastwam_tactile.sh` |
+
+**任务依赖与关键路径**（三线并行，checkpoint 上传是最长杆）：
+
+```mermaid
+flowchart TD
+    code["① 代码上传 ✅"]
+    env["② 环境安装 🔄<br/>uv + torch 2.11 cu128"]
+    data["③ 数据集上传 2.9G ✅"]
+    ckpt["④ checkpoint 上传 34G 🔄<br/>12G 模型 + 23G 优化器状态<br/>~2.2MB/s ← 关键路径"]
+    weights["⑤ 权重下载 26G ⏳<br/>hf-mirror 8MB/s"]
+    verify["数据校验 ⏳<br/>verify_fastwam_dataset.py"]
+    train["⑥ RESUME=1 续训 ⏳<br/>从 150k 步接续"]
+
+    code --> env
+    env -->|"装完后启动"| weights
+    data --> verify
+    ckpt --> train
+    weights --> train
+    verify --> train
+
+    style ckpt stroke-width:3px
+    style train stroke-dasharray: 5 5
+```
 
 **服务器目录布局**：
 - 代码：`/root/autodl-tmp/Multimodal-Tactile-Sensing-for-Embodied-AI/`（venv 在其下 `.venv/`）
 - 数据/输出：`/root/autodl-tmp/mosense-lerobot/`（`datasets/raw/...` 与 `outputs/checkpoints/...`）
 
 **本地源**（Data2TB 数据盘，勿动）：
-```
-/media/mosense/Data2TB/Projects/Mosense-LeRobot-Tactile/
-├── datasets/raw/Tactile_FastWAM_Insert_The_Cylinder          # 2.9G
-└── outputs/checkpoints/Tactile_FastWAM_Insert_The_Cylinder_h10_b8_s150000/
-    └── checkpoints/last/{pretrained_model 12G, training_state 23G}
+
+```mermaid
+flowchart LR
+    subgraph local["本机 Data2TB（/media/mosense/Data2TB）"]
+        ds["数据集 2.9G<br/>datasets/raw/Tactile_FastWAM_…"]
+        ck["checkpoint last 34G<br/>pretrained_model 12G<br/>training_state 23G"]
+    end
+    subgraph server["AutoDL 实例（autodl-tmp 350G）"]
+        repo["代码仓库<br/>Multimodal-Tactile-…<br/>+.venv 环境"]
+        sds["数据集 ✅"]
+        sck["checkpoint 🔄"]
+        w["HF 权重 ⏳<br/>hf-mirror.com"]
+        run["续训 run ⏳"]
+    end
+
+    ds -->|"scp 2.2MB/s ✅"| sds
+    ck -->|"scp 2.2MB/s 🔄 关键路径"| sck
+    hfm["hf-mirror.com<br/>fastwam_base + Wan2.2 + umt5"]
+    hfm -->|"8MB/s ⏳"| w
+    repo --> run
+    sds --> run
+    sck --> run
+    w --> run
+    run -->|"$RESUME=1$ 从 150k 步接续"| run
+
+    style ck stroke-width:2px
+    style run stroke-dasharray: 5 5
 ```
 
 ---
