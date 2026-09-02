@@ -1,7 +1,9 @@
-# AutoDL 续训执行日志（进行中）
+# AutoDL 续训执行日志（✅ 续训已启动，2026-09-02 17:08）
 
 > 目标：在云端续训 FastWAM 触觉 checkpoint（15 万步 → 更多步），避免与本机 LingBot 抢 GPU。
-> 本文档记录实际执行进度，与 AUTODL_RESUME_GUIDE.md（方案）配套。
+> 本文档记录实际执行进度，与 AUTODL_RESUME_GUIDE.md（方案）、AUTODL_RESUME_REPORT.md（完成报告）配套。
+>
+> **当前状态：五步全部完成，续训运行中。105K → 150K 步，2.84s/step，ETA ~36h（9/4 早）。详见 AUTODL_RESUME_REPORT.md。**
 
 ---
 
@@ -39,16 +41,16 @@ flowchart LR
 
 ---
 
-## 五步流程进度（2026-09-02 更新）
+## 五步流程进度（✅ 全部完成，2026-09-02 17:17 快照）
 
 | # | 任务 | 大小 | 状态 | 备注 |
 |---|---|---|---|---|
 | ① | 代码上传 | 310M | ✅ 完成 | GitHub 直连不通（ghfast.top 镜像也超时），改用 `git archive` 打包 scp |
-| ② | 环境安装 | ~8G | 🔄 进行中 | `setup_fastwam_autodl.sh` nohup 后台跑，log `/root/setup.log`；uv 已装好，torch 2.11 及 nvidia 库下载中，速度 ~1.7MB/s |
+| ② | 环境安装 | ~8G | ✅ 完成 15:16 | torch 2.11.0+cu130 装好，CUDA 冒烟测试通过 |
 | ③ | 数据集上传 | 2.9G | ✅ 完成 | `datasets/raw/Tactile_FastWAM_Insert_The_Cylinder` 已就位 |
-| ④ | checkpoint last 上传 | 34G | 🔄 进行中（8G/34G） | scp 后台跑（12G 模型 + 23G 优化器状态），速度 ~2.2MB/s，预计 ~4h；坑：目录必须带 `-r` |
-| ⑤ | 权重下载 | ~26G | ⏳ 待启动 | 等环境装完跑 `prepare_fastwam_models.sh`，走 hf-mirror.com（实测 8MB/s）|
-| ⑥ | 续训启动 | — | ⏳ 待启动 | `RESUME=1 bash scripts/autodl/train_fastwam_tactile.sh` |
+| ④ | checkpoint last 上传 | 34G | ✅ 完成 | 12G 模型 + 23G 优化器状态，`du -sh` 核对一致 |
+| ⑤ | 权重下载 | ~26G | ✅ 完成 15:49 | hf-mirror.com 8MB/s，fastwam_base 12G + Wan2.2 14G + umt5 |
+| ⑥ | 续训启动 | — | ✅ **17:08 启动** | `RESUME=1 bash scripts/autodl/train_fastwam_tactile.sh`，GPU 100%，loss 0.26→0.18 |
 
 **任务依赖与关键路径**（三线并行，checkpoint 上传是最长杆）：
 
@@ -128,9 +130,10 @@ flowchart LR
 - SAVE_FREQ=5000（每 5 千步存 34G，350G 盘约可存 9 个，注意清理）
 - 续训：`RESUME=1`，从 `last/pretrained_model/train_config.json` 读配置，`--resume=true` 接着 15 万步往上训
 
-## 下一步（环境装完后）
+## 下一步（训练完成后，预计 9/4 早上）
 
-1. 跑 `prepare_fastwam_models.sh` 下 26G 权重（HF_ENDPOINT=https://hf-mirror.com）
-2. 跑 `verify_fastwam_dataset.py` 校验数据集完整性
-3. 等 checkpoint 传完 → 确认 `du -sh` 对得上 34G
-4. `RESUME=1 bash scripts/autodl/train_fastwam_tactile.sh` 起训（同样 nohup 保护）
+1. 确认 150K 完成：`grep 'step:' /root/train.log | tail`，并看 W&B 曲线
+2. 下载最终 checkpoint（只需 pretrained_model 12G）
+3. 跑 eval 扩展评测（adjust_bottle 5/5 基础上）
+4. 清理服务器：删 090k–105k 中间 checkpoint、关机/无卡模式停止计费
+5. 收尾更新 AUTODL_RESUME_REPORT.md 与本文档
