@@ -19,6 +19,33 @@
 | 触觉配置 | history=10, future=48, encoder_hidden=256, context_tokens=1 |
 | 为什么上云 | 本地 RTX PRO 6000 被 LingBot 常驻占 31G，训练需 70G+ 显存 |
 
+**模型结构**（视觉专家冻结微调，触觉/动作头新增训练）：
+
+```mermaid
+flowchart LR
+    subgraph inputs["输入"]
+        cam["双相机视频<br/>front + top<br/>49帧 @224×448"]
+        prop["本体感知<br/>6 维关节状态"]
+        tact["霍尔触觉<br/>5×3 磁场通道<br/>history=10"]
+    end
+    subgraph wan["Wan2.2 世界模型底座（视频专家）"]
+        vae["VAE 编码器"]
+        dif["Diffusion Transformer"]
+    end
+    subgraph heads["任务头（本阶段训练重点）"]
+        vh["未来视频预测头"]
+        ah["动作头<br/>horizon=48, 执行32步"]
+        th["触觉头<br/>future=48 步<br/>hall loss λ=1.0"]
+    end
+    cam --> vae --> dif --> vh
+    prop --> dif
+    tact -->|"编码 256 维, 1 context token"| dif
+    dif --> ah
+    dif --> th
+    style wan opacity:0.75
+    style th stroke-width:2.5px
+```
+
 ## 3. 完成情况
 
 ```mermaid
@@ -41,6 +68,33 @@ flowchart LR
 | ⑤ | 预训练权重下载 | ✅ fastwam_base 12G + Wan2.2 14G + umt5 |
 | ⑥ | 续训 | 🔄 **358/45000 步，loss 0.18-0.21，2.82s/步** |
 
+**端到端数据流**（本地 → 云端全链路）：
+
+```mermaid
+flowchart TD
+    subgraph local["本机（RTX PRO 6000 被占，仅作数据源）"]
+        D2TB["Data2TB 数据盘<br/>数据集 + checkpoint"]
+        dev["开发/监控<br/>SSH 免密"]
+    end
+    subgraph cloud["AutoDL A800-80G（350G 盘）"]
+        env[".venv 环境<br/>torch 2.11+cu130"]
+        data["数据集 2.9G"]
+        ckpt["checkpoint last 34G<br/>105K 步恢复点"]
+        wts["HF 权重缓存 26G<br/>fastwam_base + Wan2.2 + umt5"]
+        run["训练 run<br/>105K → 150K<br/>每 5K 步存 34G"]
+    end
+    hfm["hf-mirror.com"]
+    D2TB -->|"scp 9.6MB/s"| data
+    D2TB -->|"scp"| ckpt
+    hfm -->|"curl 并行 10MB/s"| wts
+    env --> run
+    data --> run
+    ckpt -->|"恢复模型+优化器"| run
+    wts --> run
+    dev -.->|"SSH 监控/控制"| run
+    run -->|"$last$ 软链接滚动更新"| run
+```
+
 **服务器**：AutoDL（SeetaCloud）A800-80G × 1，驱动 580.82，350G 数据盘，112 核/1T 内存
 **成本相关**：数据盘占用 67G/350G；每 5000 步自动存 34G checkpoint
 
@@ -58,9 +112,27 @@ flowchart LR
 
 ## 5. 训练健康度
 
+![loss 对比曲线](images/loss_curve_resume.png)
+
 **原 run 参考**（本地日志）：45K→0.165, 80K→0.132, 104K→0.122（平缓收敛）
 
-**当前云端续训**：起步窗口 0.18-0.24，epoch 位置（5.37）与原 run（7.5+）不同导致采样难度差异，属预期波动。**判定标准**：若数小时内回落至 0.12-0.15 区间 = 健康复；若持续 >0.2 = 排查恢复状态对齐。监控已挂（OOM/崩溃/报错自动告警）。
+**当前云端续训**：起步窗口 0.18-0.24，epoch 位置（5.37）与原 run（7.5+）不同导致采样难度差异，属预期波动，且已观察到下行趋势（0.24→0.18）。**判定标准**：若数小时内回落至 0.12-0.15 区间 = 健康复；若持续 >0.2 = 排查恢复状态对齐。监控已挂（OOM/崩溃/报错自动告警）。
+
+**异常自动处理链路**：
+
+```mermaid
+flowchart LR
+    train["训练进程<br/>nohup 服务器本地"]
+    watch["本机监控<br/>每 5 分钟 SSH 巡检"]
+    ok["正常：静默继续"]:::ok
+    err["异常：OOM/崩溃/报错"]
+    fix["自动恢复路径：<br/>杀残留进程 → 清显存 → 从 last 重启"]
+    train -->|"tail log + ps"| watch
+    watch -->|健康| ok
+    watch -->|异常| err --> fix
+    fix -.->|"RESUME 从最近 5K 存档续"| train
+    classDef ok opacity:0.6
+```
 
 ## 6. 接下来
 
