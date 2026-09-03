@@ -142,6 +142,21 @@ flowchart LR
 
 ## 监控快照与决策记录
 
+### ⚠️ 事故记录：21:08 首个 checkpoint 后训练崩溃（9/3 早发现并修复）
+
+**时间线**：
+1. 21:08:52 — step 110000 checkpoint 保存成功（34G 完整：pretrained_model 12G + training_state 23G）
+2. 21:08:52 — lerobot `update_last_checkpoint()` 尝试把 `last` 改为指向 `110000` 的软链接 → **`FileExistsError: 'last' 已存在`**（我们上传的是实体目录，不是软链）→ 异常未捕获，**训练进程直接退出**
+3. 21:08 ~ 9:10（次日）— GPU 空转约 12 小时（按 ¥7.5/h 约 ¥90 损失）
+4. 9:10 — 定时清理任务发现；深查 `train.log` 定位根因
+5. 9:42 — 删除旧 `last`（105K 内容，本地有备份），创建 `last -> 110000` 软链——与 lerobot 期望的结构一致，此雷已排
+6. 9:5x — 重启续训时踩第二个坑：`verify_fastwam_dataset.py` 默认期望 200 episodes/122594 帧，但数据集实际 280/175767（与本地 Data2TB 一致，非数据问题）——需带 `EXPECTED_EPISODES=280 EXPECTED_FRAMES=175767`
+7. 带 `RESUME=1 EXPECTED_EPISODES=280 EXPECTED_FRAMES=175767` 重新启动，从 110K checkpoint 恢复
+
+**根因**：上传 checkpoint 时用了**实体目录** `last`，而 lerobot 的 `update_last_checkpoint()` 只会 unlink 软链再建软链，遇到实体目录抛 FileExistsError。**教训：以后上传 resume checkpoint，应上传成 `checkpoints/<step>/` 目录 + 手动建 `last -> <step>` 软链，不要直接放实体 last 目录。**
+
+**损失评估**：约 12h GPU 空转（~¥90）+ 完成时间推迟 12h 至 **9/4 深夜~9/5 早**。无数据/进度损失（110K checkpoint 完整，从 110K 恢复）。
+
 ### 2026-09-02 18:56 快照（启动后 1h48m）
 
 | 指标 | 值 | 说明 |
@@ -167,10 +182,10 @@ flowchart LR
 
 ### 自动化监控安排
 
-| 时间 | 动作 |
-|---|---|
-| 今晚 21:23 | 检查 110K checkpoint 落盘 → 确认 `last` 改指、34G 完整 → 删旧 105K 腾 34G → 回帖汇报；未落盘则整点重试 |
-| 明早 8:07 | 生成晨报：最新步数/loss/磁盘/checkpoint + 预计 9 点到场时状态 + 决策建议（A 冲刺中/B 已完成保持开机/C 异常诊断+resume 方案）|
+| 时间 | 动作 | 结果 |
+|---|---|---|
+| 9/2 21:23 | 检查 110K checkpoint 落盘 → 删旧 105K → 回帖汇报 | ⚠️ 发现 21:08 训练已崩（见事故记录），清理同时排掉软链雷，9/3 早修复重启 |
+| 9/3 8:07 | 生成晨报 | ⏳ 待执行（用户 9 点后到场，正好覆盖事故汇报）|
 
 > 注意：定时任务在 Claude Code 会话内运行，**今晚不能关掉该会话窗口**（不影响服务器训练，训练在 nohup 下）。
 
