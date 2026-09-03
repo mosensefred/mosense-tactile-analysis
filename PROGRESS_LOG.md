@@ -155,6 +155,13 @@ flowchart LR
 
 **根因**：上传 checkpoint 时用了**实体目录** `last`，而 lerobot 的 `update_last_checkpoint()` 只会 unlink 软链再建软链，遇到实体目录抛 FileExistsError。**教训：以后上传 resume checkpoint，应上传成 `checkpoints/<step>/` 目录 + 手动建 `last -> <step>` 软链，不要直接放实体 last 目录。**
 
+**重启踩坑连环记**（3 个坑，逐一排掉）：
+1. 坑①：重启缺 `RESUME=1` → 脚本想新建 run
+2. 坑②：`verify_fastwam_dataset.py` 默认期望 200 eps/122594 帧，实际 280/175767 → 已把脚本默认值改为实际值（服务器上 sed 修正）
+3. 坑③：脚本默认 `LAMBDA_HALL=0.2` 会给 RUN_NAME 加 `_lhall0p2` 后缀，与现有目录名不匹配 → 用显式 `RUN_NAME=Tactile_FastWAM_Insert_The_Cylinder_h10_b8_s150000` 解决
+
+**最终恢复（9/3 10:02）**：`RESUME=1 RUN_NAME=Tactile_FastWAM_Insert_The_Cylinder_h10_b8_s150000 bash scripts/autodl/train_fastwam_tactile.sh`，验证 `Resuming data order at epoch 5, sample 95800`（从 110K 精确接续），loss 0.148~0.176 与崩溃前无缝衔接，GPU 75.6G 满载。剩余 40K 步 × ~3.0s/step ≈ 33h，**新 ETA：9/4 晚上 19:00~21:00 完成**。
+
 **损失评估**：约 12h GPU 空转（~¥90）+ 完成时间推迟 12h 至 **9/4 深夜~9/5 早**。无数据/进度损失（110K checkpoint 完整，从 110K 恢复）。
 
 ### 2026-09-02 18:56 快照（启动后 1h48m）
