@@ -202,3 +202,30 @@ flowchart LR
 - **场景 B 已完成**：① `du -sh` 确认 150K 完整 34G、`last` 指向 150000；② 保持开机（已决策），确认后手动关机；③ 下载计划——只需 pretrained_model 12G（scp ~1.5h），training_state 23G 视是否还要续训；④ 评测方案：云端评（GPU 热着、免重传）vs 本地评（lingbot 占 31G，推理 60G 够）；评什么：105K vs 150K 对比、扩展 adjust_bottle 外任务；⑤ W&B 截图存档、更新报告
 - **场景 C 崩了/实例失联**：磁盘满 → 删旧 → `RESUME=1` 重启（最多损失一个 checkpoint）；实例消失 → 控制台重开（端口密码都变，免密公钥重装）→ 数据盘还在 → 重装环境 resume；loss 发散 → 回滚 145K
 - **性价比视角**：到明早总花费 ≈ 40h × ¥7.5 ≈ ¥300；空转 4h = +¥30；150K 模型下一步去向（eval / demo 视频 / 归档）决定是否立刻下载
+
+---
+
+## 9/4 训后进展：真机 rollout 冒烟测试（21:45-21:48）✅
+
+训练 18:20 完成后，开始搭 FastWAM 真机推理链路。用本地已有 105K checkpoint 做冒烟测试（150K 下载受 AutoDL 出口限速 ~130KB/s 太慢，改用 105K 先行，参数已对齐：`n_action_steps=32`、`torch_dtype=bfloat16`、任务文本从 `meta/tasks.parquet` 提取）。
+
+### 结果：链路全通
+
+| 环节 | 状态 |
+|---|---|
+| FastWAM 模型加载 | ✅ 48s，MoE 6B（video 5.0B + action 1.02B），显存够 |
+| 触觉传感器 | ✅ `/dev/ttyUSB0` 连接 + idle 校准通过 |
+| 双相机 | ✅ video0 + video2 |
+| 机械臂 | ✅ `mosense_follower_arm`（校准匹配）|
+| 推理引擎 | ✅ sync inline mode |
+| episode | ✅ 第 0 条正常开始 |
+
+### 踩坑：校准 id 混淆
+
+rollout 首次用 `--robot.id=mosense_follower` 加载到错误校准文件（homing_offset -799 那套），与电机里正确的 7/24 值（-1869 那套）mismatch，卡交互式 `input()` 抛 EOFError。改 `mosense_follower_arm` 即通过。详见 [SO101_FOLLOWER_CALIBRATION_ID_20260904.md](SO101_FOLLOWER_CALIBRATION_ID_20260904.md)。
+
+### 待跟进
+
+1. 控制频率 19–28Hz（目标 30Hz），警告「相机 FPS / 推理太慢」——与 SO-101 之前记录的问题一致，正式跑前需评估
+2. episode 被「右箭头键」误触提前结束（键盘监听全局），正式跑需避免误触
+3. 150K 权重下载慢（~130KB/s），暂用 105K；建议 AutoDL 控制台提带宽后再下 150K
